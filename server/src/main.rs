@@ -1,6 +1,6 @@
 use tokio::{io::AsyncReadExt, net::{TcpListener, TcpStream}};
 use core::time;
-use std::{io::{self}, ops::Deref};
+use std::{io::{self, Read}, ops::Deref};
 use std::error::Error;
 use std::collections::HashMap;
 use std::sync::{RwLock, Arc};
@@ -9,7 +9,7 @@ use contract::Identity;
 #[derive(Debug, Clone)]
 pub struct Server {
     id: Arc<RwLock<u32>>,
-    clients: Arc<RwLock<HashMap<u32, TcpStream>>>,
+    clients: Arc<RwLock<HashMap<u32, std::net::TcpStream>>>,
     url: String,
 }
 
@@ -25,37 +25,35 @@ impl Server {
 
 async fn on_clients_connect(server: Arc<Server>, socket: TcpStream) -> Result<(), Box<dyn Error>> {
     socket.readable().await?;
-    let mut buf:[u8; 1] = [0; 1];
-    // TODO: Try turn into std socket here to do blocking IO!
-    match socket.try_read(&mut buf) {
-        Ok(0) => Ok(()),
-        Ok(_n) => {
-            let identity = buf[0];
-            print!("Got identity {}", identity);
+    let mut identity_buf:[u8; 1] = [0; 1];
+    let mut std_socket = socket.into_std().unwrap();
+    std_socket.set_nonblocking(false).unwrap();
+    match std_socket.read_exact(&mut identity_buf) {
+        Ok(()) => {
+            let identity = identity_buf[0];
+            println!("Got identity {}", identity);
             if identity == Identity::Client.into() {
                 let mut id = server.id.write().unwrap();
-                server.clients.write().unwrap().insert(*id, socket);
+                server.clients.write().unwrap().insert(*id, std_socket);
                 *id += 1;
             } else if identity == Identity::Host.into() {
                 loop {
-                    socket.readable().await?;
                     let mut buf: [u8; 2]= [0; 2];
-                    match socket.try_read(&mut buf) {
-                        Ok(0) => continue,
-                        Ok(_n) => {
+                    match std_socket.read_exact(&mut buf) {
+                        Ok(()) => {
                             let command = buf[0];
                             let time_stamp = buf[1];
                             println!("Command {}, time_stamp {}", command, time_stamp);
                         },
-                        _ => println!("ERR"),
+                        Err(e) => panic!("{:?}", e),
                     }
                 }
             } else {
-                println!("A host is already connected");
+                println!("Unrecognized Identity");
             }
             Ok(())
         },
-        Err(e) => Err(e.into())
+        Err(e) => panic!("{:?}", e),
     }
 }
 
