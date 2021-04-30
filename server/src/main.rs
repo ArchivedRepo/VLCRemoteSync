@@ -1,5 +1,6 @@
-use tokio::net::{TcpListener, TcpStream};
-use std::io::{self};
+use tokio::{io::AsyncReadExt, net::{TcpListener, TcpStream}};
+use core::time;
+use std::{io::{self}, ops::Deref};
 use std::error::Error;
 use std::collections::HashMap;
 use std::sync::{RwLock, Arc};
@@ -39,6 +40,10 @@ async fn on_clients_connect(server: Arc<Server>, socket: TcpStream) -> Result<()
                 let mut val = server.host.write().unwrap();
                 if val.is_none() {
                     *val = Some(socket);
+                    let this_server = server.clone();
+                    tokio::spawn(async {
+                        handle_host_command(this_server);
+                    });
                 } else {
                     println!("A host is already connected");
                 }
@@ -46,6 +51,27 @@ async fn on_clients_connect(server: Arc<Server>, socket: TcpStream) -> Result<()
             Ok(())
         },
         Err(e) => Err(e.into())
+    }
+}
+
+async fn handle_host_command(server: Arc<Server>) -> Result<(), Box<dyn Error>> {
+    let server_socket = server.host.read().unwrap();
+    let socket = match server_socket.deref() {
+        Some(s) => s,
+        _ => panic!("LOGIC FAULT"),
+    };
+    loop {
+        socket.readable().await?;
+        let mut buf: [u8; 2]= [0; 2];
+        match socket.try_read(&mut buf) {
+            Ok(0) => continue,
+            Ok(_n) => {
+                let command = buf[0];
+                let time_stamp = buf[1];
+                println!("Command {}, time_stamp {}", command, time_stamp);
+            },
+            _ => println!("ERR"),
+        }
     }
 }
 
