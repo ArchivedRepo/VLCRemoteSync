@@ -10,7 +10,6 @@ use contract::Identity;
 pub struct Server {
     id: Arc<RwLock<u32>>,
     clients: Arc<RwLock<HashMap<u32, TcpStream>>>,
-    host: Arc<RwLock<bool>>,
     url: String,
 }
 
@@ -19,7 +18,6 @@ impl Server {
         Server {
             id: Arc::new(RwLock::new(0)),
             clients: Arc::new(RwLock::new(HashMap::new())),
-            host: Arc::new(RwLock::new(false)),
             url,
         }
     }
@@ -39,18 +37,7 @@ async fn on_clients_connect(server: Arc<Server>, socket: TcpStream) -> Result<()
                 server.clients.write().unwrap().insert(*id, socket);
                 *id += 1;
             } else if identity == Identity::Host.into() {
-                let this_val;
-                {
-                    let mut val = server.host.write().unwrap();
-                    this_val = *val;
-                    if !this_val {
-                        *val = true;
-                    }
-                }
                 loop {
-                    if this_val {
-                        break;
-                    }
                     socket.readable().await?;
                     let mut buf: [u8; 2]= [0; 2];
                     match socket.try_read(&mut buf) {
