@@ -28,10 +28,12 @@ impl Server {
 async fn on_clients_connect(server: Arc<Server>, socket: TcpStream) -> Result<(), Box<dyn Error>> {
     socket.readable().await?;
     let mut buf:[u8; 1] = [0; 1];
+    // TODO: Try turn into std socket here to do blocking IO!
     match socket.try_read(&mut buf) {
         Ok(0) => Ok(()),
         Ok(_n) => {
             let identity = buf[0];
+            print!("Got identity {}", identity);
             if identity == Identity::Client.into() {
                 let mut id = server.id.write().unwrap();
                 server.clients.write().unwrap().insert(*id, socket);
@@ -46,7 +48,7 @@ async fn on_clients_connect(server: Arc<Server>, socket: TcpStream) -> Result<()
                     }
                 }
                 loop {
-                    if !this_val {
+                    if this_val {
                         break;
                     }
                     socket.readable().await?;
