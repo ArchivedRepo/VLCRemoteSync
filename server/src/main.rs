@@ -1,6 +1,6 @@
 use tokio::{io::AsyncReadExt, net::{TcpListener, TcpStream}};
 use core::time;
-use std::{io::{self, Read}, ops::Deref};
+use std::{io::{self, Read, Write}, ops::Deref};
 use std::error::Error;
 use std::collections::HashMap;
 use std::sync::{RwLock, Arc};
@@ -43,7 +43,11 @@ async fn on_clients_connect(server: Arc<Server>, socket: TcpStream) -> Result<()
                         Ok(()) => {
                             let command = buf[0];
                             let time_stamp = buf[1];
-                            println!("Command {}, time_stamp {}", command, time_stamp);
+                            println!("Host send Command {}, time_stamp {}", command, time_stamp);
+                            let clients = server.clients.read().unwrap();
+                            for mut conn in clients.values() {
+                                conn.write_all(&buf).unwrap();
+                            }
                         },
                         Err(e) => panic!("{:?}", e),
                     }
