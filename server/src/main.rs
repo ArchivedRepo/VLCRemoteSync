@@ -81,7 +81,7 @@ async fn main() -> io::Result<()> {
                 println!("Accepting connection from {:?}", addr);
                 let this_server = server.clone();
                 tokio::spawn(async move {
-                    on_clients_connect(this_server, socket).await;
+                    on_clients_connect(this_server, socket).await.unwrap();
                 });
                 
             },
