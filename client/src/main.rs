@@ -13,7 +13,10 @@ fn main() {
                 println!("Get command {}, with timestamp {}", buf[0], buf[1]);
             },
             Err(e) => {
+                println!("Socket broken with the following error.");
                 println!("{:?}", e);
+                println!("Terminating...");
+                return;
             }
         }
     }
