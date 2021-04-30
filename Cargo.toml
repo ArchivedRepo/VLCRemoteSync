@@ -5,4 +5,5 @@ members = [
     "contract",
     "host",
     "client",
+    "VLCWebController"
 ]
